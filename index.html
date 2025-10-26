@@ -17,7 +17,14 @@
     header h1{font-size:18px;margin:0}
 
     main{flex:1;min-height:0;display:grid;grid-template-columns:1fr 260px;gap:14px;padding:14px}
-    @media (max-width: 900px){ main{grid-template-columns:1fr;gap:10px} }
+    @media (max-width: 900px){
+      .controls{position:sticky;bottom:0;z-index:10;padding-bottom:calc(10px + env(safe-area-inset-bottom));}
+      :root{ --btn-size: 52px; }
+      .a4box{width:min(100%, calc(60vh * 210 / 297)); max-height:60vh}
+      /* 5 顆按鈕一排剛好塞滿手機寬度，不用捲動 */
+      .markers{display:grid;grid-template-columns:repeat(5, 1fr);gap:6px;padding:8px}
+      .markers .marker{flex:0 0 auto;padding:10px 6px;font-size:12px;min-height:40px}
+    } }
 
     .stage{position:relative;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);display:grid;grid-template-rows:1fr auto;min-height:0}
     .screen{position:relative;display:grid;place-items:center;min-height:0}
@@ -37,9 +44,9 @@
     .bar{flex:1;height:6px;background:#0b1729;border-radius:999px;overflow:hidden;min-width:140px}
     .bar > i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ok),var(--accent));}
 
-    .markers{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px;display:flex;flex-direction:column;gap:10px}
+    .markers{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px;display:flex;flex-direction:column;gap:8px}
     .markers h2{font-size:15px;margin:2px 2px 8px;color:var(--muted)}
-    .marker{width:100%;text-align:left;line-height:1.2;white-space:normal}
+    .marker{width:100%;text-align:center;line-height:1.1;white-space:nowrap;font-size:13px;padding:10px 10px;height:auto;min-height:40px}
     .marker[aria-current="true"]{outline:2px solid var(--accent);outline-offset:2px;filter:saturate(120%)}
 
     @media (max-width: 900px){
