@@ -3,19 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>現場引導播放器（固定 1.0–5.0，同層，A4 自動縮放）</title>
+  <title>現場引導播放器（A4 自動縮放，固定 1.0–5.0）</title>
   <style>
     :root{
-      --bg:#0e1a2b;
-      --card:#14243d;
-      --text:#e9f1ff;
-      --muted:#9fb0c9;
-      --accent:#4da3ff;
-      --accent-2:#7dc3ff;
-      --ok:#3ad29f;
-      --shadow: 0 8px 30px rgba(0,0,0,.35);
-      --radius: 18px;
-      --btn-size: 56px;
+      --bg:#0e1a2b; --card:#14243d; --text:#e9f1ff; --muted:#9fb0c9;
+      --accent:#4da3ff; --accent-2:#7dc3ff; --ok:#3ad29f; --shadow:0 8px 30px rgba(0,0,0,.35);
+      --radius:18px; --btn-size:56px;
     }
     *{box-sizing:border-box}
     html,body{height:100%}
@@ -24,19 +17,15 @@
     header h1{font-size:18px;margin:0}
 
     main{flex:1;min-height:0;display:grid;grid-template-columns:1fr 260px;gap:14px;padding:14px}
-    @media (max-width: 900px){
-      .controls{position:sticky;bottom:0;z-index:10;padding-bottom:calc(12px + env(safe-area-inset-bottom));}
-      :root{ --btn-size: 64px; }
-      .a4box{width:min(100%, calc(62vh * 210 / 297));max-height:62vh}
-      .markers{display:flex;flex-direction:row;overflow:auto;gap:8px;padding:10px}
-      .markers .marker{flex:0 0 auto}
-    } }
+    @media (max-width: 900px){ main{grid-template-columns:1fr;gap:10px} }
 
     .stage{position:relative;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);display:grid;grid-template-rows:1fr auto;min-height:0}
     .screen{position:relative;display:grid;place-items:center;min-height:0}
     .screen-inner{width:100%;height:100%;display:grid;place-items:center;padding:12px}
-    .a4box{aspect-ratio:210/297;width:min(100%, calc(72vh * 210 / 297));max-height:72vh;display:block}
-    .a4box > iframe,.a4box > img{width:100%;height:100%;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:#091121;object-fit:contain}
+
+    /* A4 容器與內容（不裁切、不變形） */
+    .a4box{aspect-ratio:210/297; width:min(100%, calc(72vh * 210 / 297)); max-height:72vh; display:block}
+    .a4content{width:100%;height:100%;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:#091121;object-fit:contain}
 
     .controls{display:flex;align-items:center;justify-content:center;gap:10px;border-top:1px solid rgba(255,255,255,.07);padding:12px}
     .btn{appearance:none;border:none;cursor:pointer;height:var(--btn-size);padding:0 18px;border-radius:999px;background:linear-gradient(180deg,var(--accent),var(--accent-2));color:#001427;font-weight:800;letter-spacing:.5px;box-shadow:0 8px 18px rgba(77,163,255,.35);transition:transform .08s ease, filter .2s ease, opacity .2s ease}
@@ -56,10 +45,13 @@
     @media (max-width: 900px){
       .controls{position:sticky;bottom:0;z-index:10;padding-bottom:calc(12px + env(safe-area-inset-bottom));}
       :root{ --btn-size: 64px; }
-      .screen iframe,.screen img{max-width:800%;max-height:800vh}
+      .a4box{width:min(100%, calc(62vh * 210 / 297)); max-height:62vh}
       .markers{display:flex;flex-direction:row;overflow:auto;gap:8px;padding:10px}
       .markers .marker{flex:0 0 auto}
     }
+
+    /* 載入失敗提示 */
+    .error{color:#ffb4b4;font-size:14px;margin-top:8px}
   </style>
 </head>
 <body>
@@ -71,9 +63,7 @@
   <main>
     <section class="stage" aria-live="polite">
       <div class="screen">
-        <div class="screen-inner" id="screenInner">
-          <p style="color:var(--muted)">載入中…</p>
-        </div>
+        <div class="screen-inner" id="screenInner"></div>
       </div>
       <div class="controls">
         <button class="btn outline" id="prevBtn">上一張</button>
@@ -101,6 +91,7 @@
   (function(){
     const EXT = 'pdf';
     const SOURCES = ['1.0','2.0','3.0','4.0','5.0'].map(n => `${n}.${EXT}`);
+
     let current = 0;
     const screenInner = document.getElementById('screenInner');
     const prevBtn = document.getElementById('prevBtn');
@@ -110,6 +101,8 @@
     const counter = document.getElementById('counter');
     const barFill = document.getElementById('barFill');
     const markers = Array.from(document.querySelectorAll('.marker'));
+
+    function clear(el){ while(el.firstChild) el.removeChild(el.firstChild); }
 
     function updateProgress(){
       counter.textContent = `${current+1} / ${SOURCES.length}`;
@@ -121,26 +114,32 @@
 
     function render(){
       const url = SOURCES[current];
-      screenInner.innerHTML = '';
+      clear(screenInner);
+      const box = document.createElement('div'); box.className = 'a4box';
+
       if(EXT === 'pdf'){
-        const box = document.createElement('div'); box.className = 'a4box';
-        const ifr = document.createElement('iframe');
-        ifr.src = url + '#toolbar=0&navpanes=0&scrollbar=1';
-        ifr.title = `第 ${current+1} 張`;
-        ifr.setAttribute('loading','lazy');
-        box.appendChild(ifr);
-        screenInner.appendChild(box);
+        // 使用 <embed> 顯示 PDF：較多瀏覽器能原生顯示，且可配合 object-fit 樣式
+        const emb = document.createElement('embed');
+        emb.setAttribute('type','application/pdf');
+        emb.setAttribute('src', url + '#toolbar=0&navpanes=0&scrollbar=1');
+        emb.className = 'a4content';
+        emb.addEventListener('error', ()=>{
+          const p = document.createElement('p'); p.className='error'; p.textContent = `無法載入 ${url}，請確認檔名大小寫與是否在同層。`;
+          box.appendChild(p);
+        });
+        box.appendChild(emb);
       }else{
-        const box = document.createElement('div'); box.className = 'a4box';
         const img = document.createElement('img');
         img.src = url; img.alt = `第 ${current+1} 張`;
+        img.className = 'a4content';
+        img.onerror = ()=>{
+          clear(box);
+          const p = document.createElement('p'); p.className='error'; p.textContent = `無法載入 ${url}，請確認檔名大小寫與是否在同層。`;
+          box.appendChild(p);
+        };
         box.appendChild(img);
-        screenInner.appendChild(box);
-      } 張`;
-        img.style.transform = 'scale(8)';
-        img.style.transformOrigin = 'top left';
-        screenInner.appendChild(img);
       }
+      screenInner.appendChild(box);
       updateProgress();
     }
 
@@ -152,9 +151,9 @@
     restartBtn.addEventListener('click', ()=>{ current = 0; render(); });
     fsBtn.addEventListener('click', ()=>{
       const el = document.documentElement;
-      if(!document.fullscreenElement){ el.requestFullscreen?.(); }
-      else { document.exitFullscreen?.(); }
+      if(!document.fullscreenElement){ el.requestFullscreen?.(); } else { document.exitFullscreen?.(); }
     });
+
     markers.forEach(btn=>{
       btn.addEventListener('click', ()=>{
         const idx = Number(btn.dataset.idx||0);
@@ -162,11 +161,8 @@
         render();
       });
     });
-    window.addEventListener('keydown', (e)=>{
-      if(e.key === 'ArrowRight' || e.code === 'Space'){ e.preventDefault(); goNext(); }
-      else if(e.key === 'ArrowLeft'){ e.preventDefault(); goPrev(); }
-      else if(e.key.toLowerCase() === 'f'){ e.preventDefault(); fsBtn.click(); }
-    });
+
+    // 初次渲染（確保一載入就替換「載入中」）
     render();
   })();
   </script>
