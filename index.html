@@ -11,31 +11,58 @@
       --radius:18px; --btn-size:56px;
     }
     *{box-sizing:border-box}
-    html,body{height:100%}
+    html,body{height:100%; overflow-x:hidden; }
     body{margin:0;background:linear-gradient(180deg,var(--bg) 0%, #0a1526 100%);color:var(--text);font-family:"Noto Sans TC",ui-sans-serif,system-ui;display:flex;flex-direction:column}
     header{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.07)}
-    header h1{font-size:18px;margin:0}
+    header h1{font-size:18px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} 
 
-    main{flex:1;min-height:0;display:grid;grid-template-columns:1fr 260px;gap:14px;padding:14px}
+    main{flex:1;min-height:0;display:grid;grid-template-columns:1fr 260px;gap:14px;padding:14px;max-width:100vw;}
     @media (max-width: 900px){
-      .controls{position:sticky;bottom:0;z-index:10;padding-bottom:calc(10px + env(safe-area-inset-bottom));}
+      /* 整頁不可橫向捲動，邊界安全 */
+      html,body{overflow-x:hidden}
+      :root{ --btn-size: 48px; }
+      main{grid-template-columns:1fr;gap:10px;padding-left:calc(10px + env(safe-area-inset-left));padding-right:calc(10px + env(safe-area-inset-right));}
+
+      /* A4 顯示區：置中且不壓控制列 */
+      .a4box{width:min(100%, calc(58vh * 210 / 297)); max-height:58vh; margin:0 auto;}
+
+      /* 位置鍵：一排 5 顆固定在頂端，不捲動不溢出 */
+      .markers{position:sticky;top:0;z-index:9;display:grid;grid-template-columns:repeat(5, minmax(0, 1fr));gap:6px;padding:8px;max-width:100vw}
+      .markers .marker{padding:8px 4px;font-size:11px;min-height:34px;overflow:hidden;text-overflow:ellipsis}
+
+      /* 控制列：改成 4 欄網格，進度條獨佔下一行，避免把按鈕擠窄變直排 */
+      .controls{position:sticky;bottom:0;left:0;right:0;z-index:10;padding:8px 8px calc(10px + env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(4, 1fr);gap:8px}
+      .controls .btn{width:100%;padding:0 10px}
+      .controls .progress{grid-column:1 / -1;justify-content:center;order:2}
+      .controls .bar{min-width:120px}
+
+      /* 標題副文案隱藏，省空間 */
+      header span{display:none}
+    }
+      :root{ --btn-size: 52px; }
+      .a4box{width:min(100%, calc(60vh * 210 / 297)); max-height:60vh; margin:0 auto;}
+      /* 5 顆按鈕一排等寬，不捲動，頂部固定 */
+      .markers{position:sticky;top:0;left:0;right:0;z-index:9;display:grid;grid-template-columns:repeat(5, minmax(0, 1fr));gap:6px;padding:8px;max-width:100vw;}
+      .markers .marker{flex:0 0 auto;padding:8px 4px;font-size:11px;min-height:36px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      main{grid-template-columns:1fr;gap:10px;padding-left:calc(8px + env(safe-area-inset-left));padding-right:calc(8px + env(safe-area-inset-right));}
+    }
       :root{ --btn-size: 52px; }
       .a4box{width:min(100%, calc(60vh * 210 / 297)); max-height:60vh}
       /* 5 顆按鈕一排剛好塞滿手機寬度，不用捲動 */
-      .markers{display:grid;grid-template-columns:repeat(5, 1fr);gap:6px;padding:8px}
+      .markers{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px;display:flex;flex-direction:column;gap:8px;max-width:100%;overflow-x:hidden;}
       .markers .marker{flex:0 0 auto;padding:10px 6px;font-size:12px;min-height:40px}
     } }
 
-    .stage{position:relative;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);display:grid;grid-template-rows:1fr auto;min-height:0}
-    .screen{position:relative;display:grid;place-items:center;min-height:0}
-    .screen-inner{width:100%;height:100%;display:grid;place-items:center;padding:12px}
+    .stage{position:relative;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);display:grid;grid-template-rows:1fr auto;min-height:0;width:100%;}
+    .screen{position:relative;display:grid;place-items:center;min-height:0;width:100%;}
+    .screen-inner{width:100%;height:100%;display:grid;place-items:center;padding:12px;max-width:100%;}
 
     /* A4 容器與內容（不裁切、不變形） */
     .a4box{aspect-ratio:210/297; width:min(100%, calc(72vh * 210 / 297)); max-height:72vh; display:block}
     .a4content{width:100%;height:100%;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:#091121;object-fit:contain}
 
     .controls{display:flex;align-items:center;justify-content:center;gap:10px;border-top:1px solid rgba(255,255,255,.07);padding:12px}
-    .btn{appearance:none;border:none;cursor:pointer;height:var(--btn-size);padding:0 18px;border-radius:999px;background:linear-gradient(180deg,var(--accent),var(--accent-2));color:#001427;font-weight:800;letter-spacing:.5px;box-shadow:0 8px 18px rgba(77,163,255,.35);transition:transform .08s ease, filter .2s ease, opacity .2s ease}
+    .btn{appearance:none;border:none;cursor:pointer;height:var(--btn-size);padding:0 16px;border-radius:999px;background:linear-gradient(180deg,var(--accent),var(--accent-2));color:#001427;font-weight:800;letter-spacing:.5px;box-shadow:0 8px 18px rgba(77,163,255,.35);transition:transform .08s ease, filter .2s ease, opacity .2s ease;white-space:nowrap;min-width:unset;}
     .btn:active{transform:translateY(1px)}
     .btn.outline{background:transparent;color:var(--text);border:1px solid rgba(255,255,255,.2);box-shadow:none}
     .btn.ghost{background:transparent;color:var(--muted);border:none}
