@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>現場引導播放器（固定 1.0–5.0，同層）</title>
+  <style>
+    :root{
+      --bg:#0e1a2b;
+      --card:#14243d;
+      --text:#e9f1ff;
+      --muted:#9fb0c9;
+      --accent:#4da3ff;
+      --accent-2:#7dc3ff;
+      --ok:#3ad29f;
+      --shadow: 0 8px 30px rgba(0,0,0,.35);
+      --radius: 18px;
+      --btn-size: 56px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:linear-gradient(180deg,var(--bg) 0%, #0a1526 100%);color:var(--text);font-family:"Noto Sans TC",ui-sans-serif,system-ui;display:flex;flex-direction:column}
+    header{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.07)}
+    header h1{font-size:18px;margin:0}
+
+    main{flex:1;min-height:0;display:grid;grid-template-columns:1fr 260px;gap:14px;padding:14px}
+    @media (max-width: 900px){
+      main{grid-template-columns:1fr;gap:10px}
+    }
+
+    /* 顯示區 */
+    .stage{position:relative;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);display:grid;grid-template-rows:1fr auto;min-height:0}
+    .screen{position:relative;display:grid;place-items:center;min-height:0}
+    .screen-inner{width:100%;height:100%;display:grid;place-items:center;padding:12px}
+    .screen iframe,.screen img{max-width:100%;max-height:70vh;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:#091121}
+
+    /* 控制列 */
+    .controls{display:flex;align-items:center;justify-content:center;gap:10px;border-top:1px solid rgba(255,255,255,.07);padding:12px}
+    .btn{appearance:none;border:none;cursor:pointer;height:var(--btn-size);padding:0 18px;border-radius:999px;background:linear-gradient(180deg,var(--accent),var(--accent-2));color:#001427;font-weight:800;letter-spacing:.5px;box-shadow:0 8px 18px rgba(77,163,255,.35);transition:transform .08s ease, filter .2s ease, opacity .2s ease}
+    .btn:active{transform:translateY(1px)}
+    .btn.outline{background:transparent;color:var(--text);border:1px solid rgba(255,255,255,.2);box-shadow:none}
+    .btn.ghost{background:transparent;color:var(--muted);border:none}
+
+    .progress{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px}
+    .bar{flex:1;height:6px;background:#0b1729;border-radius:999px;overflow:hidden;min-width:140px}
+    .bar > i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ok),var(--accent));}
+
+    /* 右側固定 5 個按鈕（場景索引） */
+    .markers{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px;display:flex;flex-direction:column;gap:10px}
+    .markers h2{font-size:15px;margin:2px 2px 8px;color:var(--muted)}
+    .marker{width:100%;text-align:left;line-height:1.2;white-space:normal}
+    .marker[aria-current="true"]{outline:2px solid var(--accent);outline-offset:2px;filter:saturate(120%)}
+
+    /* 行動裝置優化：控制列置底、按鈕放大、標記改成水平可捲 */
+    @media (max-width: 900px){
+      .controls{position:sticky;bottom:0;z-index:10;padding-bottom:calc(12px + env(safe-area-inset-bottom));}
+      :root{ --btn-size: 64px; }
+      .screen iframe,.screen img{max-height:62vh}
+      .markers{display:flex;flex-direction:row;overflow:auto;gap:8px;padding:10px}
+      .markers .marker{flex:0 0 auto}
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>現場引導播放器</h1>
+    <span style="color:var(--muted);font-size:12px">鍵盤：← 上一張、→/空白 下一張、F 全螢幕</span>
+  </header>
+
+  <main>
+    <section class="stage" aria-live="polite">
+      <div class="screen">
+        <div class="screen-inner" id="screenInner">
+          <p style="color:var(--muted)">載入中…</p>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn outline" id="prevBtn">上一張</button>
+        <div class="progress">
+          <span id="counter">0 / 0</span>
+          <div class="bar"><i id="barFill"></i></div>
+        </div>
+        <button class="btn" id="nextBtn">下一張</button>
+        <button class="btn ghost" id="restartBtn" title="重新開始">重播</button>
+        <button class="btn ghost" id="fsBtn" title="全螢幕 (F)">全螢幕</button>
+      </div>
+    </section>
+
+    <aside class="markers" id="markers">
+      <h2>位置快捷</h2>
+      <button class="btn marker" data-idx="0">我在 3A</button>
+      <button class="btn marker" data-idx="1">我在 3A 走出來</button>
+      <button class="btn marker" data-idx="2">我左轉看到復興汽車出口</button>
+      <button class="btn marker" data-idx="3">我直走後看到 1A</button>
+      <button class="btn marker" data-idx="4">我在 1A</button>
+    </aside>
+  </main>
+
+  <script>
+  (function(){
+    // === 固定來源：同層的 1.0.pdf ~ 5.0.pdf ===
+    const EXT = 'pdf'; // 如果未來改成圖片，可改成 'png' 或 'jpg'
+    const SOURCES = ['1.0','2.0','3.0','4.0','5.0'].map(n => `${n}.${EXT}`);
+
+    let current = 0;
+    const screenInner = document.getElementById('screenInner');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const fsBtn = document.getElementById('fsBtn');
+    const counter = document.getElementById('counter');
+    const barFill = document.getElementById('barFill');
+
+    const markers = Array.from(document.querySelectorAll('.marker'));
+
+    function updateProgress(){
+      counter.textContent = `${current+1} / ${SOURCES.length}`;
+      barFill.style.width = (((current+1)/SOURCES.length)*100) + '%';
+      markers.forEach((m,i)=> m.setAttribute('aria-current', i===current? 'true':'false'));
+      nextBtn.textContent = (current === SOURCES.length-1)? '完成' : '下一張';
+      prevBtn.disabled = (current === 0);
+    }
+
+    function render(){
+      const url = SOURCES[current];
+      screenInner.innerHTML = '';
+      if(EXT === 'pdf'){
+        const ifr = document.createElement('iframe');
+        ifr.src = url + '#toolbar=0&navpanes=0&scrollbar=1';
+        ifr.title = `第 ${current+1} 張`;
+        ifr.setAttribute('loading','lazy');
+        screenInner.appendChild(ifr);
+      }else{
+        const img = document.createElement('img');
+        img.src = url; img.alt = `第 ${current+1} 張`;
+        screenInner.appendChild(img);
+      }
+      updateProgress();
+    }
+
+    function goNext(){ if(current < SOURCES.length-1){ current++; render(); } }
+    function goPrev(){ if(current > 0){ current--; render(); } }
+
+    // 綁定事件
+    nextBtn.addEventListener('click', goNext);
+    prevBtn.addEventListener('click', goPrev);
+    restartBtn.addEventListener('click', ()=>{ current = 0; render(); });
+
+    fsBtn.addEventListener('click', ()=>{
+      const el = document.documentElement;
+      if(!document.fullscreenElement){ el.requestFullscreen?.(); }
+      else { document.exitFullscreen?.(); }
+    });
+
+    // 右側 5 個按鈕：直接跳到對應圖片
+    markers.forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const idx = Number(btn.dataset.idx||0);
+        current = Math.max(0, Math.min(SOURCES.length-1, idx));
+        render();
+      });
+    });
+
+    // 鍵盤
+    window.addEventListener('keydown', (e)=>{
+      if(e.key === 'ArrowRight' || e.code === 'Space'){ e.preventDefault(); goNext(); }
+      else if(e.key === 'ArrowLeft'){ e.preventDefault(); goPrev(); }
+      else if(e.key.toLowerCase() === 'f'){ e.preventDefault(); fsBtn.click(); }
+    });
+
+    // 初次渲染
+    render();
+  })();
+  </script>
+</body>
+</html>
