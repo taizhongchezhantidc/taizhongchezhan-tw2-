@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>現場引導播放器（固定 1.0–5.0，同層）</title>
+  <title>現場引導播放器（固定 1.0–5.0，同層，A4 自動縮放）</title>
   <style>
     :root{
       --bg:#0e1a2b;
@@ -25,16 +25,19 @@
 
     main{flex:1;min-height:0;display:grid;grid-template-columns:1fr 260px;gap:14px;padding:14px}
     @media (max-width: 900px){
-      main{grid-template-columns:1fr;gap:10px}
-    }
+      .controls{position:sticky;bottom:0;z-index:10;padding-bottom:calc(12px + env(safe-area-inset-bottom));}
+      :root{ --btn-size: 64px; }
+      .a4box{width:min(100%, calc(62vh * 210 / 297));max-height:62vh}
+      .markers{display:flex;flex-direction:row;overflow:auto;gap:8px;padding:10px}
+      .markers .marker{flex:0 0 auto}
+    } }
 
-    /* 顯示區 */
     .stage{position:relative;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);display:grid;grid-template-rows:1fr auto;min-height:0}
     .screen{position:relative;display:grid;place-items:center;min-height:0}
     .screen-inner{width:100%;height:100%;display:grid;place-items:center;padding:12px}
-    .screen iframe,.screen img{max-width:100%;max-height:70vh;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:#091121}
+    .a4box{aspect-ratio:210/297;width:min(100%, calc(72vh * 210 / 297));max-height:72vh;display:block}
+    .a4box > iframe,.a4box > img{width:100%;height:100%;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:#091121;object-fit:contain}
 
-    /* 控制列 */
     .controls{display:flex;align-items:center;justify-content:center;gap:10px;border-top:1px solid rgba(255,255,255,.07);padding:12px}
     .btn{appearance:none;border:none;cursor:pointer;height:var(--btn-size);padding:0 18px;border-radius:999px;background:linear-gradient(180deg,var(--accent),var(--accent-2));color:#001427;font-weight:800;letter-spacing:.5px;box-shadow:0 8px 18px rgba(77,163,255,.35);transition:transform .08s ease, filter .2s ease, opacity .2s ease}
     .btn:active{transform:translateY(1px)}
@@ -45,17 +48,15 @@
     .bar{flex:1;height:6px;background:#0b1729;border-radius:999px;overflow:hidden;min-width:140px}
     .bar > i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ok),var(--accent));}
 
-    /* 右側固定 5 個按鈕（場景索引） */
     .markers{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px;display:flex;flex-direction:column;gap:10px}
     .markers h2{font-size:15px;margin:2px 2px 8px;color:var(--muted)}
     .marker{width:100%;text-align:left;line-height:1.2;white-space:normal}
     .marker[aria-current="true"]{outline:2px solid var(--accent);outline-offset:2px;filter:saturate(120%)}
 
-    /* 行動裝置優化：控制列置底、按鈕放大、標記改成水平可捲 */
     @media (max-width: 900px){
       .controls{position:sticky;bottom:0;z-index:10;padding-bottom:calc(12px + env(safe-area-inset-bottom));}
       :root{ --btn-size: 64px; }
-      .screen iframe,.screen img{max-height:62vh}
+      .screen iframe,.screen img{max-width:800%;max-height:800vh}
       .markers{display:flex;flex-direction:row;overflow:auto;gap:8px;padding:10px}
       .markers .marker{flex:0 0 auto}
     }
@@ -98,10 +99,8 @@
 
   <script>
   (function(){
-    // === 固定來源：同層的 1.0.pdf ~ 5.0.pdf ===
-    const EXT = 'pdf'; // 如果未來改成圖片，可改成 'png' 或 'jpg'
+    const EXT = 'pdf';
     const SOURCES = ['1.0','2.0','3.0','4.0','5.0'].map(n => `${n}.${EXT}`);
-
     let current = 0;
     const screenInner = document.getElementById('screenInner');
     const prevBtn = document.getElementById('prevBtn');
@@ -110,7 +109,6 @@
     const fsBtn = document.getElementById('fsBtn');
     const counter = document.getElementById('counter');
     const barFill = document.getElementById('barFill');
-
     const markers = Array.from(document.querySelectorAll('.marker'));
 
     function updateProgress(){
@@ -125,14 +123,22 @@
       const url = SOURCES[current];
       screenInner.innerHTML = '';
       if(EXT === 'pdf'){
+        const box = document.createElement('div'); box.className = 'a4box';
         const ifr = document.createElement('iframe');
         ifr.src = url + '#toolbar=0&navpanes=0&scrollbar=1';
         ifr.title = `第 ${current+1} 張`;
         ifr.setAttribute('loading','lazy');
-        screenInner.appendChild(ifr);
+        box.appendChild(ifr);
+        screenInner.appendChild(box);
       }else{
+        const box = document.createElement('div'); box.className = 'a4box';
         const img = document.createElement('img');
         img.src = url; img.alt = `第 ${current+1} 張`;
+        box.appendChild(img);
+        screenInner.appendChild(box);
+      } 張`;
+        img.style.transform = 'scale(8)';
+        img.style.transformOrigin = 'top left';
         screenInner.appendChild(img);
       }
       updateProgress();
@@ -141,18 +147,14 @@
     function goNext(){ if(current < SOURCES.length-1){ current++; render(); } }
     function goPrev(){ if(current > 0){ current--; render(); } }
 
-    // 綁定事件
     nextBtn.addEventListener('click', goNext);
     prevBtn.addEventListener('click', goPrev);
     restartBtn.addEventListener('click', ()=>{ current = 0; render(); });
-
     fsBtn.addEventListener('click', ()=>{
       const el = document.documentElement;
       if(!document.fullscreenElement){ el.requestFullscreen?.(); }
       else { document.exitFullscreen?.(); }
     });
-
-    // 右側 5 個按鈕：直接跳到對應圖片
     markers.forEach(btn=>{
       btn.addEventListener('click', ()=>{
         const idx = Number(btn.dataset.idx||0);
@@ -160,15 +162,11 @@
         render();
       });
     });
-
-    // 鍵盤
     window.addEventListener('keydown', (e)=>{
       if(e.key === 'ArrowRight' || e.code === 'Space'){ e.preventDefault(); goNext(); }
       else if(e.key === 'ArrowLeft'){ e.preventDefault(); goPrev(); }
       else if(e.key.toLowerCase() === 'f'){ e.preventDefault(); fsBtn.click(); }
     });
-
-    // 初次渲染
     render();
   })();
   </script>
